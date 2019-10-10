@@ -864,7 +864,7 @@ void rename_tokens(ska::flat_hash_map<uint32_t, uint32_t> &char2id,
 }
 
 Status learn_bpe_from_string(string &text_utf8, int n_tokens,
-                             const string &output_file,
+                             StreamWriter &output,
                              BpeConfig bpe_config, BPEState *bpe_state) {
   vector<std::thread> threads;
   assert(bpe_config.n_threads >= 1 || bpe_config.n_threads == -1);
@@ -1300,8 +1300,8 @@ Status learn_bpe_from_string(string &text_utf8, int n_tokens,
   rename_tokens(char2id, rules, bpe_config.special_tokens, n_tokens);
 
   *bpe_state = {char2id, rules, bpe_config.special_tokens};
-  bpe_state->dump(output_file);
-  std::cerr << "model saved to: " << output_file << std::endl;
+  bpe_state->dump(output);
+  std::cerr << "model saved to: " << output.name() << std::endl;
   return Status();
 }
 
@@ -1449,6 +1449,7 @@ Status train_bpe(const string &input_path, const string &model_path,
     return status;
   }
   std::cerr << "learning bpe..." << std::endl;
+  auto fout = StreamWriter.open(model_path);
   BPEState bpe_state;
   status = learn_bpe_from_string(data, vocab_size, model_path, bpe_config, &bpe_state);
   if (!status.ok()) {
@@ -1636,9 +1637,9 @@ BaseEncoder::BaseEncoder(BPEState _bpe_state, int _n_threads)
   }
 }
 
-BaseEncoder::BaseEncoder(const string &model_path, int _n_threads, Status *ret_status)
+BaseEncoder::BaseEncoder(ModelReader &reader, int _n_threads, Status *ret_status)
     : n_threads(_n_threads) {
-  Status status = bpe_state.load(model_path);
+  Status status = bpe_state.load(reader);
   if (!status.ok()) {
     *ret_status = status;
     return;

@@ -7,7 +7,7 @@
 #include <vector>
 
 
-namespace vkcom {
+namespace srcd {
 using std::string;
 using std::vector;
 
@@ -22,8 +22,8 @@ class FileWriter : public StreamWriter {
     }
   }
 
-  virtual int write(const char *buffer, int size) override {
-    return fout.write(buffer, size);
+  virtual void write(const char *buffer, int size) override {
+    fout.write(buffer, size);
   }
 
   virtual std::string name() const noexcept override {
@@ -46,8 +46,8 @@ class FileReader : public StreamReader {
     }
   }
 
-  virtual int read(const char *buffer, int size) override {
-    return fin.read(buffer, size);
+  virtual void read(char *buffer, int size) override {
+    fin.read(buffer, size);
   }
 
   virtual std::string name() const noexcept override {
@@ -59,12 +59,12 @@ class FileReader : public StreamReader {
   std::ifstream fin;
 };
 
-StreamWriter StreamWriter::open(const std::string &file_name) {
-  return FileWriter(file_name);
+std::unique_ptr<StreamWriter> StreamWriter::open(const std::string &file_name) {
+  return std::make_unique<FileWriter>(file_name);
 }
 
-StreamReader StreamReader::open(const std::string &file_name) {
-  return FileReader(file_name);
+std::unique_ptr<StreamReader> StreamReader::open(const std::string &file_name) {
+  return std::make_unique<FileReader>(file_name);
 }
 
 template<typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
@@ -167,7 +167,7 @@ void BPEState::dump(StreamWriter &fout) {
   special_tokens.dump(fout);
 }
 
-Status BPEState::load(StreamReader &fin)) {
+Status BPEState::load(StreamReader &fin) {
   char2id.clear();
   rules.clear();
   char n_bs[4], m_bs[4];
@@ -231,4 +231,4 @@ const std::string &Status::error_message() const {
 bool Status::ok() const {
   return code == 0;
 }
-}  // namespace vkcom
+}  // namespace srcd

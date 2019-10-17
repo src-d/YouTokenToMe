@@ -7,7 +7,7 @@
 
 #include "utils.h"
 
-namespace vkcom {
+namespace srcd {
 
 const std::string UNK_TOKEN = "<UNK>";
 const std::string PAD_TOKEN = "<PAD>";
@@ -79,4 +79,4 @@ class BaseEncoder {
   ) const;
 };
 
-}  // namespace vkcom
+}  // namespace srcd

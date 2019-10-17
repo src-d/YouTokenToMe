@@ -1,27 +1,28 @@
 #pragma once
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 #include "third_party/flat_hash_map.h"
 
-namespace vkcom {
+namespace srcd {
 const uint32_t SPACE_TOKEN = 9601;
 
 struct StreamWriter {
-  virtual int write(const char *buffer, int size) = 0;
+  virtual void write(const char *buffer, int size) = 0;
   virtual std::string name() const noexcept = 0;
   virtual ~StreamWriter() = default;
 
-  static StreamWriter open(const std::string &file_name);
+  static std::unique_ptr<StreamWriter> open(const std::string &file_name);
 };
 
 struct StreamReader {
-  virtual int read(const char *buffer, int size) = 0;
+  virtual void read(char *buffer, int size) = 0;
   virtual std::string name() const noexcept = 0;
   virtual ~StreamReader() = default;
 
-  static StreamReader open(const std::string &file_name);
+  static std::unique_ptr<StreamReader> open(const std::string &file_name);
 };
 
 struct BPE_Rule {
@@ -86,7 +87,7 @@ struct BPEState {
 
   void dump(StreamWriter &fout);
 
-  Status load(StreamReader &fin));
+  Status load(StreamReader &fin);
 };
 
 struct DecodeResult {
@@ -117,4 +118,4 @@ void write_to_stdout(const std::vector<std::vector<T>> &sentences, bool flush) {
   }
 }
 
-}  // namespace vkcom
+}  // namespace srcd

@@ -20,7 +20,7 @@
 #include "utf8.h"
 #include "utils.h"
 
-namespace vkcom {
+namespace srcd {
 using std::string;
 using std::vector;
 
@@ -53,16 +53,16 @@ struct VectorSegment {
   }
 };
 
-}  // namespace vkcom
+}  // namespace srcd
 
 namespace std {
 template<>
-struct hash<vkcom::VectorSegment> {
-  size_t operator()(const vkcom::VectorSegment &x) const { return x.hash; }
+struct hash<srcd::VectorSegment> {
+  size_t operator()(const srcd::VectorSegment &x) const { return x.hash; }
 };
 }  // namespace std
 
-namespace vkcom {
+namespace srcd {
 
 Status fast_read_file_utf8(const string &file_name, string *file_content) {
   static const int buf_size = 1000000;
@@ -863,7 +863,7 @@ void rename_tokens(ska::flat_hash_map<uint32_t, uint32_t> &char2id,
   }
 }
 
-Status learn_bpe_from_string(string &text_utf8, int n_tokens,
+Status learn_bpe_from_string(const string &text_utf8, int n_tokens,
                              StreamWriter &output,
                              BpeConfig bpe_config, BPEState *bpe_state) {
   vector<std::thread> threads;
@@ -1449,9 +1449,9 @@ Status train_bpe(const string &input_path, const string &model_path,
     return status;
   }
   std::cerr << "learning bpe..." << std::endl;
-  auto fout = StreamWriter.open(model_path);
+  auto fout = StreamWriter::open(model_path);
   BPEState bpe_state;
-  status = learn_bpe_from_string(data, vocab_size, model_path, bpe_config, &bpe_state);
+  status = learn_bpe_from_string(data, vocab_size, *fout.get(), bpe_config, &bpe_state);
   if (!status.ok()) {
     return status;
   }
@@ -1637,7 +1637,7 @@ BaseEncoder::BaseEncoder(BPEState _bpe_state, int _n_threads)
   }
 }
 
-BaseEncoder::BaseEncoder(ModelReader &reader, int _n_threads, Status *ret_status)
+BaseEncoder::BaseEncoder(StreamReader &reader, int _n_threads, Status *ret_status)
     : n_threads(_n_threads) {
   Status status = bpe_state.load(reader);
   if (!status.ok()) {
@@ -2019,4 +2019,4 @@ Status BaseEncoder::decode_cli() const {
   return Status();
 }
 
-}  // namespace vkcom
+}  // namespace srcd

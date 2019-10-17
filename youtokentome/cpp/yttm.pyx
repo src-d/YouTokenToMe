@@ -1,3 +1,5 @@
+from cython.operator cimport dereference as deref
+from libcpp.memory cimport unique_ptr
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 from libcpp cimport bool
@@ -5,7 +7,7 @@ import os
 from pathlib import Path
 
 
-cdef extern from "bpe.h" namespace "vkcom":
+cdef extern from "bpe.h" namespace "srcd":
 
     cdef cppclass SpecialTokens:
         int pad_id
@@ -23,12 +25,17 @@ cdef extern from "bpe.h" namespace "vkcom":
         string message
 
 
-cdef extern from "bpe.h" namespace "vkcom":
+cdef extern from "bpe.h" namespace "srcd":
     Status train_bpe(const string &source_path, const string& model_path, int vocab_size, const BpeConfig& bpe_config)
 
-cdef extern from "bpe.h" namespace "vkcom":
+cdef extern from "utils.h" namespace "srcd":
+    cdef cppclass StreamReader:
+        @staticmethod
+        unique_ptr[StreamReader] open(const string &file_name)
+
+cdef extern from "bpe.h" namespace "srcd":
     cdef cppclass BaseEncoder:
-        BaseEncoder(const string& model_path, int n_threads, Status* status)
+        BaseEncoder(StreamReader& model_path, int n_threads, Status* status)
 
         Status encode_as_ids(const vector[string] &sentences, vector[vector[int]]* ids, bool bos, bool eos, bool reverse) const
         Status encode_as_subwords(const vector[string]& sentences, vector[vector[string]]* subwords, bool bos, bool eos, bool reverse) const
@@ -55,7 +62,8 @@ cdef class BPE:
 
     def __init__(self, model_path, n_threads=-1):
         cdef Status status
-        self.encoder = new BaseEncoder(model_path.encode(), n_threads, &status)
+        reader = StreamReader.open(model_path.encode())
+        self.encoder = new BaseEncoder(deref(reader), n_threads, &status)
         if status.code != 0:
             raise ValueError(status.message.decode())
 

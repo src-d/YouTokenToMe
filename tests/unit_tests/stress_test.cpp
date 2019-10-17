@@ -14,7 +14,7 @@
 #include <chrono>
 #include <thread>
 
-namespace vkcom {
+namespace srcd {
 using namespace std;
 
 extern int alive_tokens;
@@ -449,21 +449,21 @@ void base_stress(int n_iter) {
 
 int main(int argc, char **argv) {
   if (argc == 1) {
-    vkcom::base_stress(-1);
+    srcd::base_stress(-1);
   } else {
     int n_iter;
     if (std::string(argv[1]) == "manual") {
-      vkcom::manual_test();
+      srcd::manual_test();
       return 0;
     }
     if (std::string(argv[1]) == "parallel") {
       sscanf(argv[2], "%d", &n_iter);
-      vkcom::parallel_test(n_iter, 8);
+      srcd::parallel_test(n_iter, 8);
       return 0;
     }
     if (std::string(argv[1]) == "base") {
       sscanf(argv[2], "%d", &n_iter);
-      vkcom::base_stress(n_iter);
+      srcd::base_stress(n_iter);
       return 0;
     }
     assert(false);

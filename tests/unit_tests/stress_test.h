@@ -3,7 +3,7 @@
 #include "../../youtokentome/cpp/third_party/flat_hash_map.h"
 #include "../../youtokentome/cpp/utils.h"
 
-namespace vkcom {
+namespace srcd {
 ska::flat_hash_map<uint32_t, uint32_t>
 compute_alphabet(const std::vector<uint32_t> &data,
                  ska::flat_hash_set<uint32_t> &removed_chars,

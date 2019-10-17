@@ -64,25 +64,6 @@ struct hash<srcd::VectorSegment> {
 
 namespace srcd {
 
-Status fast_read_file_utf8(const string &file_name, string *file_content) {
-  static const int buf_size = 1000000;
-  *file_content = "";
-  auto fin = fopen(file_name.data(), "rb");
-  if (fin == nullptr) {
-    return Status(1, "Failed to open file: " + file_name);
-  }
-  while (true) {
-    size_t cur_size = file_content->size();
-    file_content->resize(cur_size + buf_size);
-    int buf_len = fread((void *) (file_content->data() + cur_size), 1, buf_size, fin);
-    if (buf_len < buf_size) {
-      file_content->resize(file_content->size() - (buf_size - buf_len));
-      fclose(fin);
-      return Status();
-    }
-  }
-}
-
 string token2word(const vector<uint32_t> &source,
                   const ska::flat_hash_map<uint32_t, uint32_t> &id2char) {
   vector<uint32_t> res;
@@ -1442,16 +1423,8 @@ Status train_bpe(StreamReader &input, StreamWriter &output,
     return status;
   }
   print_config(input.name(), output.name(), vocab_size, bpe_config);
-  std::cerr << "reading file..." << std::endl;
-  string data;
-  if (input.name() != "") {
-    status = fast_read_file_utf8(input.name(), &data);
-    if (!status.ok()) {
-      return status;
-    }
-  } else {
-    // read all
-  }
+  std::cerr << "reading input text..." << std::endl;
+  auto data = input.read_all();
   std::cerr << "learning bpe..." << std::endl;
   BPEState bpe_state;
   status = learn_bpe_from_string(data, vocab_size, output, bpe_config, &bpe_state);

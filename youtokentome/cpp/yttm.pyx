@@ -12,7 +12,7 @@ from pathlib import Path
 
 cdef extern from "utils.h" namespace "srcd":
     ctypedef void (*py_write_func)(void *self, const char *buffer, int size)
-    ctypedef void (*py_read_func)(void *self, char *buffer, int size)
+    ctypedef int (*py_read_func)(void *self, char *buffer, int size)
     ctypedef string (*py_name_func)(void *self)
 
     cdef cppclass StreamReader:
@@ -85,12 +85,14 @@ cdef void write_callback(void *self, const char *buffer, int size):
     (<object>self).write(PyMemoryView_FromMemory(<char *>buffer, size, PyBUF_READ))
 
 
-cdef void read_callback(void *self, char *buffer, int size):
+cdef int read_callback(void *self, char *buffer, int size):
     pybuf = (<object>self).read(size)
+    size = len(pybuf)
     cdef Py_buffer bufmem
     PyObject_GetBuffer(pybuf, &bufmem, PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS)
     memcpy(buffer, <char *>bufmem.buf, size)
     PyBuffer_Release(&bufmem)
+    return size
 
 
 cdef string name_callback(void *self):

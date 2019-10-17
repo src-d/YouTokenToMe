@@ -11,6 +11,20 @@ namespace srcd {
 using std::string;
 using std::vector;
 
+std::string StreamReader::read_all() {
+  constexpr int buf_size = 1000000;
+  std::string file_content;
+  while (true) {
+    size_t cur_size = file_content.size();
+    file_content.resize(cur_size + buf_size);
+    int buf_len = read(const_cast<char *>(file_content.data()) + cur_size, buf_size);
+    if (buf_len < buf_size) {
+      file_content.resize(file_content.size() - (buf_size - buf_len));
+      return file_content;
+    }
+  }
+}
+
 class FileWriter : public StreamWriter {
  public:
   FileWriter(const std::string &file_name) {
@@ -46,8 +60,10 @@ class FileReader : public StreamReader {
     }
   }
 
-  virtual void read(char *buffer, int size) override {
+  virtual int read(char *buffer, int size) override {
+    auto pos = fin_.tellg();
     fin_.read(buffer, size);
+    return fin_.tellg() - pos;
   }
 
   virtual std::string name() const noexcept override {
@@ -102,8 +118,8 @@ class AssembledStreamReader : public StreamReader {
     this->self_ = self;
   }
 
-  virtual void read(char *buffer, int size) override {
-    read_(self_, buffer, size);
+  virtual int read(char *buffer, int size) override {
+    return read_(self_, buffer, size);
   }
 
   virtual std::string name() const noexcept override {

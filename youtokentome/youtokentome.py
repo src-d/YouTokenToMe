@@ -1,5 +1,6 @@
 from enum import Enum
-from functools import wraps
+import io
+import os
 from typing import BinaryIO, List, Optional, Union
 
 import _youtokentome_cython
@@ -25,7 +26,7 @@ class BPE:
 
     @staticmethod
     def train(
-        data: str,
+        data: Unionstr,
         model: Optional[Union[str, BinaryIO]],
         vocab_size: int,
         coverage: float = 1.0,
@@ -38,10 +39,12 @@ class BPE:
         own_obj = isinstance(model, str)
         if own_obj:
             model = open(model, "wb")
+        if model is None:
+            model = io.BytesIO()
         try:
             _youtokentome_cython.BPE.train(
                 data=data,
-                model=model,
+                fobj=model,
                 vocab_size=vocab_size,
                 n_threads=n_threads,
                 coverage=coverage,
@@ -50,11 +53,11 @@ class BPE:
                 bos_id=bos_id,
                 eos_id=eos_id,
             )
+            model.seek(0, os.SEEK_SET)
+            return BPE(model=model, n_threads=n_threads)
         finally:
             if own_obj:
                 model.close()
-
-        return BPE(model=model, n_threads=n_threads)
 
     def encode(
         self,
@@ -90,7 +93,7 @@ class BPE:
         if own_obj:
             where = open(where, "wb")
         try:
-            self.bpe_cython.save(where=where)
+            self.bpe_cython.save(fobj=where)
         finally:
             if own_obj:
                 where.close()

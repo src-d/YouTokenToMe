@@ -16,7 +16,7 @@ const std::string EOS_TOKEN = "<EOS>";
 
 enum OutputType { ID, SUBWORD };
 
-Status train_bpe(const std::string &input_path, const std::string &model_path,
+Status train_bpe(StreamReader &input, StreamWriter &output,
                  int vocab_size, BpeConfig config);
 
 void print_vocab(const std::string &model_path, bool verbose);

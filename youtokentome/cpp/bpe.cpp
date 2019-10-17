@@ -1435,23 +1435,26 @@ void print_config(const string &input_path, const string &model_path,
   std::cerr << std::endl;
 }
 
-Status train_bpe(const string &input_path, const string &model_path,
+Status train_bpe(StreamReader &input, StreamWriter &output,
                  int vocab_size, BpeConfig bpe_config) {
   Status status = check_config(bpe_config, vocab_size);
   if (!status.ok()) {
     return status;
   }
-  print_config(input_path, model_path, vocab_size, bpe_config);
+  print_config(input.name(), output.name(), vocab_size, bpe_config);
   std::cerr << "reading file..." << std::endl;
   string data;
-  status = fast_read_file_utf8(input_path, &data);
-  if (!status.ok()) {
-    return status;
+  if (input.name() != "") {
+    status = fast_read_file_utf8(input.name(), &data);
+    if (!status.ok()) {
+      return status;
+    }
+  } else {
+    // read all
   }
   std::cerr << "learning bpe..." << std::endl;
-  auto fout = StreamWriter::open(model_path);
   BPEState bpe_state;
-  status = learn_bpe_from_string(data, vocab_size, *fout.get(), bpe_config, &bpe_state);
+  status = learn_bpe_from_string(data, vocab_size, output, bpe_config, &bpe_state);
   if (!status.ok()) {
     return status;
   }

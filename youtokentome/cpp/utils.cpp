@@ -14,57 +14,111 @@ using std::vector;
 class FileWriter : public StreamWriter {
  public:
   FileWriter(const std::string &file_name) {
-    this->file_name = file_name;
-    this->fout = std::ofstream(file_name, std::ios::out | std::ios::binary);
-    if (fout.fail()) {
+    this->file_name_ = file_name;
+    this->fout_ = std::ofstream(file_name, std::ios::out | std::ios::binary);
+    if (fout_.fail()) {
       std::cerr << "Can't open file: " << file_name << std::endl;
       assert(false);
     }
   }
 
   virtual void write(const char *buffer, int size) override {
-    fout.write(buffer, size);
+    fout_.write(buffer, size);
   }
 
   virtual std::string name() const noexcept override {
-    return file_name;
+    return file_name_;
   }
 
  private:
-  std::string file_name;
-  std::ofstream fout;
+  std::string file_name_;
+  std::ofstream fout_;
 };
 
 class FileReader : public StreamReader {
  public:
   FileReader(const std::string &file_name) {
-    this->file_name = file_name;
-    this->fin = std::ifstream(file_name, std::ios::in | std::ios::binary);
-    if (fin.fail()) {
+    this->file_name_ = file_name;
+    this->fin_ = std::ifstream(file_name, std::ios::in | std::ios::binary);
+    if (fin_.fail()) {
       std::cerr << "Can't open file: " << file_name << std::endl;
       assert(false);
     }
   }
 
   virtual void read(char *buffer, int size) override {
-    fin.read(buffer, size);
+    fin_.read(buffer, size);
   }
 
   virtual std::string name() const noexcept override {
-    return file_name;
+    return file_name_;
   }
 
  private:
-  std::string file_name;
-  std::ifstream fin;
+  std::string file_name_;
+  std::ifstream fin_;
 };
 
 std::unique_ptr<StreamWriter> StreamWriter::open(const std::string &file_name) {
   return std::make_unique<FileWriter>(file_name);
 }
 
+class AssembledStreamWriter : public StreamWriter {
+ public:
+  AssembledStreamWriter(py_write_func write, py_name_func name, void *self) noexcept {
+    this->write_ = write;
+    this->name_ = name;
+    this->self_ = self;
+  }
+
+  virtual void write(const char *buffer, int size) override {
+    write_(self_, buffer, size);
+  }
+
+  virtual std::string name() const noexcept override {
+    return name_(self_);
+  }
+
+ private:
+  void *self_;
+  py_write_func write_;
+  py_name_func name_;
+};
+
+std::unique_ptr<StreamWriter> StreamWriter::assemble(
+    py_write_func write, py_name_func name, void *self) {
+  return std::make_unique<AssembledStreamWriter>(write, name, self);
+}
+
 std::unique_ptr<StreamReader> StreamReader::open(const std::string &file_name) {
   return std::make_unique<FileReader>(file_name);
+}
+
+class AssembledStreamReader : public StreamReader {
+ public:
+  AssembledStreamReader(py_read_func read, py_name_func name, void *self) noexcept {
+    this->read_ = read;
+    this->name_ = name;
+    this->self_ = self;
+  }
+
+  virtual void read(char *buffer, int size) override {
+    read_(self_, buffer, size);
+  }
+
+  virtual std::string name() const noexcept override {
+    return name_(self_);
+  }
+
+ private:
+  void *self_;
+  py_read_func read_;
+  py_name_func name_;
+};
+
+std::unique_ptr<StreamReader> StreamReader::assemble(
+    py_read_func read, py_name_func name, void *self) {
+  return std::make_unique<AssembledStreamReader>(read, name, self);
 }
 
 template<typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0>

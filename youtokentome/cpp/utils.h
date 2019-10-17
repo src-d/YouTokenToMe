@@ -9,12 +9,18 @@
 namespace srcd {
 const uint32_t SPACE_TOKEN = 9601;
 
+typedef void (*py_write_func)(void *self, const char *buffer, int size);
+typedef void (*py_read_func)(void *self, char *buffer, int size);
+typedef std::string (*py_name_func)(void *self);
+
 struct StreamWriter {
   virtual void write(const char *buffer, int size) = 0;
   virtual std::string name() const noexcept = 0;
   virtual ~StreamWriter() = default;
 
   static std::unique_ptr<StreamWriter> open(const std::string &file_name);
+  static std::unique_ptr<StreamWriter> assemble(
+      py_write_func write, py_name_func name, void *self);
 };
 
 struct StreamReader {
@@ -23,6 +29,8 @@ struct StreamReader {
   virtual ~StreamReader() = default;
 
   static std::unique_ptr<StreamReader> open(const std::string &file_name);
+  static std::unique_ptr<StreamReader> assemble(
+      py_read_func read, py_name_func name, void *self);
 };
 
 struct BPE_Rule {

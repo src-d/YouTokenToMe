@@ -1,4 +1,7 @@
 from cython.operator cimport dereference as deref
+from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, \
+    PyBUF_READ, PyBUF_SIMPLE, PyBUF_ANY_CONTIGUOUS
+from libc.string cimport memcpy
 from libcpp.memory cimport unique_ptr
 from libcpp.vector cimport vector
 from libcpp.string cimport string
@@ -29,9 +32,23 @@ cdef extern from "bpe.h" namespace "srcd":
     Status train_bpe(const string &source_path, const string& model_path, int vocab_size, const BpeConfig& bpe_config)
 
 cdef extern from "utils.h" namespace "srcd":
+    ctypedef void (*py_write_func)(void *self, const char *buffer, int size)
+    ctypedef void (*py_read_func)(void *self, char *buffer, int size)
+    ctypedef string (*py_name_func)(void *self)
+
     cdef cppclass StreamReader:
         @staticmethod
-        unique_ptr[StreamReader] open(const string &file_name)
+        unique_ptr[StreamReader] open(const string &file_name_)
+
+        @staticmethod
+        unique_ptr[StreamReader] assemble(py_read_func read, py_name_func name, void *self)
+
+    cdef cppclass StreamWriter:
+        @staticmethod
+        unique_ptr[StreamWriter] open(const string &file_name_)
+
+        @staticmethod
+        unique_ptr[StreamWriter] assemble(py_write_func write, py_name_func name, void *self)
 
 cdef extern from "bpe.h" namespace "srcd":
     cdef cppclass BaseEncoder:
@@ -54,15 +71,35 @@ cdef extern from "bpe.h" namespace "srcd":
         vector[string] vocabulary() const
 
 
+cdef extern from "Python.h":
+    object PyMemoryView_FromMemory(char *mem, ssize_t size, int flags)
+
+
+cdef void write_callback(void *self, const char *buffer, int size):
+    (<object>self).write(PyMemoryView_FromMemory(<char *>buffer, size, PyBUF_READ))
+
+
+cdef void read_callback(void *self, char *buffer, int size):
+    pybuf = (<object>self).read(size)
+    cdef Py_buffer bufmem
+    PyObject_GetBuffer(pybuf, &bufmem, PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS)
+    memcpy(buffer, <char *>bufmem.buf, size)
+    PyBuffer_Release(&bufmem)
+
+
+cdef string name_callback(void *self):
+    return (<object>self).name
+
+
 cdef class BPE:
     cdef BaseEncoder* encoder
 
     def __dealloc__(self):
         del self.encoder
 
-    def __init__(self, model_path, n_threads=-1):
+    def __init__(self, fobj, n_threads=-1):
         cdef Status status
-        reader = StreamReader.open(model_path.encode())
+        cdef unique_ptr[StreamReader] reader = StreamReader.assemble(read_callback, name_callback, <void*>self)
         self.encoder = new BaseEncoder(deref(reader), n_threads, &status)
         if status.code != 0:
             raise ValueError(status.message.decode())

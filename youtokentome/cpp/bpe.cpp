@@ -20,7 +20,7 @@
 #include "utf8.h"
 #include "utils.h"
 
-namespace vkcom {
+namespace srcd {
 using std::string;
 using std::vector;
 
@@ -53,35 +53,16 @@ struct VectorSegment {
   }
 };
 
-}  // namespace vkcom
+}  // namespace srcd
 
 namespace std {
 template<>
-struct hash<vkcom::VectorSegment> {
-  size_t operator()(const vkcom::VectorSegment &x) const { return x.hash; }
+struct hash<srcd::VectorSegment> {
+  size_t operator()(const srcd::VectorSegment &x) const { return x.hash; }
 };
 }  // namespace std
 
-namespace vkcom {
-
-Status fast_read_file_utf8(const string &file_name, string *file_content) {
-  static const int buf_size = 1000000;
-  *file_content = "";
-  auto fin = fopen(file_name.data(), "rb");
-  if (fin == nullptr) {
-    return Status(1, "Failed to open file: " + file_name);
-  }
-  while (true) {
-    size_t cur_size = file_content->size();
-    file_content->resize(cur_size + buf_size);
-    int buf_len = fread((void *) (file_content->data() + cur_size), 1, buf_size, fin);
-    if (buf_len < buf_size) {
-      file_content->resize(file_content->size() - (buf_size - buf_len));
-      fclose(fin);
-      return Status();
-    }
-  }
-}
+namespace srcd {
 
 string token2word(const vector<uint32_t> &source,
                   const ska::flat_hash_map<uint32_t, uint32_t> &id2char) {
@@ -863,8 +844,8 @@ void rename_tokens(ska::flat_hash_map<uint32_t, uint32_t> &char2id,
   }
 }
 
-Status learn_bpe_from_string(string &text_utf8, int n_tokens,
-                             const string &output_file,
+Status learn_bpe_from_string(const string &text_utf8, int n_tokens,
+                             StreamWriter &output,
                              BpeConfig bpe_config, BPEState *bpe_state) {
   vector<std::thread> threads;
   assert(bpe_config.n_threads >= 1 || bpe_config.n_threads == -1);
@@ -1300,8 +1281,8 @@ Status learn_bpe_from_string(string &text_utf8, int n_tokens,
   rename_tokens(char2id, rules, bpe_config.special_tokens, n_tokens);
 
   *bpe_state = {char2id, rules, bpe_config.special_tokens};
-  bpe_state->dump(output_file);
-  std::cerr << "model saved to: " << output_file << std::endl;
+  bpe_state->dump(output);
+  std::cerr << "model saved to: " << output.name() << std::endl;
   return Status();
 }
 
@@ -1435,22 +1416,18 @@ void print_config(const string &input_path, const string &model_path,
   std::cerr << std::endl;
 }
 
-Status train_bpe(const string &input_path, const string &model_path,
+Status train_bpe(StreamReader &input, StreamWriter &output,
                  int vocab_size, BpeConfig bpe_config) {
   Status status = check_config(bpe_config, vocab_size);
   if (!status.ok()) {
     return status;
   }
-  print_config(input_path, model_path, vocab_size, bpe_config);
-  std::cerr << "reading file..." << std::endl;
-  string data;
-  status = fast_read_file_utf8(input_path, &data);
-  if (!status.ok()) {
-    return status;
-  }
+  print_config(input.name(), output.name(), vocab_size, bpe_config);
+  std::cerr << "reading input text..." << std::endl;
+  auto data = input.read_all();
   std::cerr << "learning bpe..." << std::endl;
   BPEState bpe_state;
-  status = learn_bpe_from_string(data, vocab_size, model_path, bpe_config, &bpe_state);
+  status = learn_bpe_from_string(data, vocab_size, output, bpe_config, &bpe_state);
   if (!status.ok()) {
     return status;
   }
@@ -1636,9 +1613,9 @@ BaseEncoder::BaseEncoder(BPEState _bpe_state, int _n_threads)
   }
 }
 
-BaseEncoder::BaseEncoder(const string &model_path, int _n_threads, Status *ret_status)
+BaseEncoder::BaseEncoder(StreamReader &reader, int _n_threads, Status *ret_status)
     : n_threads(_n_threads) {
-  Status status = bpe_state.load(model_path);
+  Status status = bpe_state.load(reader);
   if (!status.ok()) {
     *ret_status = status;
     return;
@@ -2018,4 +1995,4 @@ Status BaseEncoder::decode_cli() const {
   return Status();
 }
 
-}  // namespace vkcom
+}  // namespace srcd

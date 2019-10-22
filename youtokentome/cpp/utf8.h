@@ -2,7 +2,7 @@
 
 #include "utils.h"
 
-namespace vkcom {
+namespace srcd {
 
 std::string encode_utf8(const std::vector<uint32_t> &utext);
 
@@ -13,7 +13,7 @@ std::vector<uint32_t> decode_utf8(const std::string &utf8_text);
 
 
 
-} // namespace vkcom
+} // namespace srcd
 
 
 

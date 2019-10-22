@@ -1,3 +1,8 @@
+from cython.operator cimport dereference as deref
+from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, \
+    PyBUF_READ, PyBUF_SIMPLE, PyBUF_ANY_CONTIGUOUS
+from libc.string cimport memcpy
+from libcpp.memory cimport unique_ptr
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 from libcpp cimport bool
@@ -5,8 +10,27 @@ import os
 from pathlib import Path
 
 
-cdef extern from "bpe.h" namespace "vkcom":
+cdef extern from "utils.h" namespace "srcd":
+    ctypedef void (*py_write_func)(void *self, const char *buffer, int size)
+    ctypedef int (*py_read_func)(void *self, char *buffer, int size)
+    ctypedef string (*py_name_func)(void *self)
 
+    cdef cppclass StreamReader:
+        @staticmethod
+        unique_ptr[StreamReader] open(const string &file_name_)
+
+        @staticmethod
+        unique_ptr[StreamReader] assemble(py_read_func read, py_name_func name, void *self)
+
+    cdef cppclass StreamWriter:
+        @staticmethod
+        unique_ptr[StreamWriter] open(const string &file_name_)
+
+        @staticmethod
+        unique_ptr[StreamWriter] assemble(py_write_func write, py_name_func name, void *self)
+
+
+cdef extern from "bpe.h" namespace "srcd":
     cdef cppclass SpecialTokens:
         int pad_id
         int unk_id
@@ -22,13 +46,19 @@ cdef extern from "bpe.h" namespace "vkcom":
         int code
         string message
 
+    cdef cppclass BPEState:
+        void dump(StreamWriter &fout)
 
-cdef extern from "bpe.h" namespace "vkcom":
-    Status train_bpe(const string &source_path, const string& model_path, int vocab_size, const BpeConfig& bpe_config)
 
-cdef extern from "bpe.h" namespace "vkcom":
+cdef extern from "bpe.h" namespace "srcd":
+    Status train_bpe(StreamReader &input, StreamWriter &output, int vocab_size,
+                     const BpeConfig& bpe_config)
+
+
+cdef extern from "bpe.h" namespace "srcd":
     cdef cppclass BaseEncoder:
-        BaseEncoder(const string& model_path, int n_threads, Status* status)
+        BPEState bpe_state
+        BaseEncoder(StreamReader& model_path, int n_threads, Status* status)
 
         Status encode_as_ids(const vector[string] &sentences, vector[vector[int]]* ids, bool bos, bool eos, bool reverse) const
         Status encode_as_subwords(const vector[string]& sentences, vector[vector[string]]* subwords, bool bos, bool eos, bool reverse) const
@@ -47,21 +77,45 @@ cdef extern from "bpe.h" namespace "vkcom":
         vector[string] vocabulary() const
 
 
+cdef extern from "Python.h":
+    object PyMemoryView_FromMemory(char *mem, ssize_t size, int flags)
+
+
+cdef void write_callback(void *self, const char *buffer, int size):
+    (<object>self).write(PyMemoryView_FromMemory(<char *>buffer, size, PyBUF_READ))
+
+
+cdef int read_callback(void *self, char *buffer, int size):
+    pybuf = (<object>self).read(size)
+    size = len(pybuf)
+    cdef Py_buffer bufmem
+    PyObject_GetBuffer(pybuf, &bufmem, PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS)
+    memcpy(buffer, <char *>bufmem.buf, size)
+    PyBuffer_Release(&bufmem)
+    return size
+
+
+cdef string name_callback(void *self):
+    return (<object>self).name
+
+
 cdef class BPE:
     cdef BaseEncoder* encoder
 
     def __dealloc__(self):
         del self.encoder
 
-    def __init__(self, model_path, n_threads=-1):
+    def __init__(self, fobj, n_threads=-1):
         cdef Status status
-        self.encoder = new BaseEncoder(model_path.encode(), n_threads, &status)
+        cdef unique_ptr[StreamReader] reader = StreamReader.assemble(
+            read_callback, name_callback, <void*>fobj)
+        self.encoder = new BaseEncoder(deref(reader), n_threads, &status)
         if status.code != 0:
             raise ValueError(status.message.decode())
 
     @staticmethod
     def train(data,
-              model,
+              fobj,
               vocab_size,
               coverage=1.0,
               n_threads=-1,
@@ -77,8 +131,12 @@ cdef class BPE:
         bpe_config.special_tokens.unk_id = unk_id
         bpe_config.special_tokens.bos_id = bos_id
         bpe_config.special_tokens.eos_id = eos_id
+        cdef unique_ptr[StreamReader] reader = StreamReader.assemble(
+            read_callback, name_callback, <void*>data)
+        cdef unique_ptr[StreamWriter] writer = StreamWriter.assemble(
+            write_callback, name_callback, <void*>fobj)
 
-        cdef Status status = train_bpe(data.encode(), model.encode(), vocab_size, bpe_config)
+        cdef Status status = train_bpe(deref(reader), deref(writer), vocab_size, bpe_config)
         if status.code != 0:
             raise ValueError(status.message.decode())
 
@@ -119,6 +177,11 @@ cdef class BPE:
             return [[piece.decode() for piece in sentence] for sentence in ret_subwords]
         else:
             raise ValueError('output_type must be equal to "id" or "subword"')
+
+    def save(self, fobj):
+        cdef unique_ptr[StreamWriter] writer = StreamWriter.assemble(
+            write_callback, name_callback, <void*>fobj)
+        self.encoder.bpe_state.dump(deref(writer));
 
     def subword_to_id(self, subword):
         return self.encoder.subword_to_id(subword.encode())

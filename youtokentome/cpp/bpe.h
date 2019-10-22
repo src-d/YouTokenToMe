@@ -7,7 +7,7 @@
 
 #include "utils.h"
 
-namespace vkcom {
+namespace srcd {
 
 const std::string UNK_TOKEN = "<UNK>";
 const std::string PAD_TOKEN = "<PAD>";
@@ -16,7 +16,7 @@ const std::string EOS_TOKEN = "<EOS>";
 
 enum OutputType { ID, SUBWORD };
 
-Status train_bpe(const std::string &input_path, const std::string &model_path,
+Status train_bpe(StreamReader &input, StreamWriter &output,
                  int vocab_size, BpeConfig config);
 
 void print_vocab(const std::string &model_path, bool verbose);
@@ -32,7 +32,7 @@ class BaseEncoder {
 
   explicit BaseEncoder(BPEState bpe_state, int _n_threads);
 
-  explicit BaseEncoder(const std::string &model_path, int n_threads, Status *ret_status);
+  explicit BaseEncoder(StreamReader& reader, int n_threads, Status *ret_status);
 
   void fill_from_state();
 
@@ -79,4 +79,4 @@ class BaseEncoder {
   ) const;
 };
 
-}  // namespace vkcom
+}  // namespace srcd

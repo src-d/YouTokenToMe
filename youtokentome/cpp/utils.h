@@ -1,12 +1,38 @@
 #pragma once
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 #include "third_party/flat_hash_map.h"
 
-namespace vkcom {
+namespace srcd {
 const uint32_t SPACE_TOKEN = 9601;
+
+typedef void (*py_write_func)(void *self, const char *buffer, int size);
+typedef int (*py_read_func)(void *self, char *buffer, int size);
+typedef std::string (*py_name_func)(void *self);
+
+struct StreamWriter {
+  virtual void write(const char *buffer, int size) = 0;
+  virtual std::string name() const noexcept = 0;
+  virtual ~StreamWriter() = default;
+
+  static std::unique_ptr<StreamWriter> open(const std::string &file_name);
+  static std::unique_ptr<StreamWriter> assemble(
+      py_write_func write, py_name_func name, void *self);
+};
+
+struct StreamReader {
+  virtual int read(char *buffer, int size) = 0;
+  virtual std::string name() const noexcept = 0;
+  virtual ~StreamReader() = default;
+
+  std::string read_all();
+  static std::unique_ptr<StreamReader> open(const std::string &file_name);
+  static std::unique_ptr<StreamReader> assemble(
+      py_read_func read, py_name_func name, void *self);
+};
 
 struct BPE_Rule {
   // x + y -> z
@@ -31,9 +57,9 @@ struct SpecialTokens {
 
   SpecialTokens(int pad_id, int unk_id, int bos_id, int eos_id);
 
-  void dump(std::ofstream &fout);
+  void dump(StreamWriter &fout);
 
-  void load(std::ifstream &fin);
+  void load(StreamReader &fin);
 
   uint32_t max_id() const;
 
@@ -68,9 +94,9 @@ struct BPEState {
   std::vector<BPE_Rule> rules;
   SpecialTokens special_tokens;
 
-  void dump(const std::string &file_name);
+  void dump(StreamWriter &fout);
 
-  Status load(const std::string &file_name);
+  Status load(StreamReader &fin);
 };
 
 struct DecodeResult {
@@ -101,4 +127,4 @@ void write_to_stdout(const std::vector<std::vector<T>> &sentences, bool flush) {
   }
 }
 
-}  // namespace vkcom
+}  // namespace srcd

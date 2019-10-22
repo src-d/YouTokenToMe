@@ -1,10 +1,6 @@
-![PyPI](https://img.shields.io/pypi/v/youtokentome.svg)
-[![Downloads](https://pepy.tech/badge/youtokentome)](https://pepy.tech/project/youtokentome)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
-![GitHub](https://img.shields.io/github/license/vkcom/youtokentome.svg)
-[![Build Status](https://travis-ci.org/VKCOM/YouTokenToMe.svg?branch=master)](https://travis-ci.org/VKCOM/YouTokenToMe)
+# YouTokenToMe [![Travis build status](https://travis-ci.com/src-d/YouTokenToMe.svg?branch=master)](https://travis-ci.com/src-d/YouTokenToMe) ![PyPI](https://img.shields.io/pypi/v/youtokentome-srcd.svg) [![Downloads](https://pepy.tech/badge/youtokentome-srcd)](https://pepy.tech/project/youtokentome-srcd) ![stability: alpha](https://svg-badge.appspot.com/badge/stability/alpha?color=0f80c0) [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-# YouTokenToMe 
+source{d}'s fork of the original [VKCOM/YouTokenToMe](https://github.com/VKCOM/YouTokenToMe). See the [Differences](#differences-with-the-original).
 
 YouTokenToMe is an unsupervised text tokenizer focused on computational efficiency. It currently implements fast Byte Pair Encoding (BPE) [[Sennrich et al.](https://www.aclweb.org/anthology/P16-1162)].
 Our implementation is much faster in training and tokenization than both [fastBPE](https://github.com/glample/fastBPE)
@@ -30,6 +26,9 @@ For example, the phrase ```Blazingly fast tokenization!``` can be tokenized into
 ```bash
 pip install youtokentome
 ```
+
+You must have [Cython]() installed if there are no wheels for your platform.
+
 ## Python interface 
 
 ### Example
@@ -289,6 +288,19 @@ Options:
   --model PATH  Path to file with learned model.  [required]
   --help        Show this message and exit.
 ```
+
+## Differences with the original
+
+source{d}'s fork has the following differences with the original project:
+
+- Binary model format
+- Installation from source requires Cython
+- Different Python API
+- Different maintenance: CI, code style, documentation.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
 
 
 

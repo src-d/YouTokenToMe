@@ -5,7 +5,7 @@
 #include <vector>
 #include "utils.h"
 
-namespace vkcom {
+namespace srcd {
 
 using std::string;
 using std::vector;
@@ -132,4 +132,4 @@ vector<uint32_t> decode_utf8(const string& utf8_text) {
   return decode_utf8(utf8_text.data(), utf8_text.data() + utf8_text.size());
 }
 
-}  // namespace vkcom
+}  // namespace srcd

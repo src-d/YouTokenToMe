@@ -17,9 +17,7 @@ class BPE:
         if own_obj:
             model = open(model, "rb")
         try:
-            self.bpe_cython = _youtokentome_cython.BPE(
-                fobj=model, n_threads=n_threads
-            )
+            self.bpe_cython = _youtokentome_cython.BPE(fobj=model, n_threads=n_threads)
         finally:
             if own_obj:
                 model.close()
